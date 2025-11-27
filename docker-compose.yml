@@ -4,6 +4,8 @@ services:
   one-hub:
     image: deanxv/done-hub:latest
     container_name: done-hub
+    networks:
+      - dokploy-network
     restart: always
     ports:
       - "3066:3000"
@@ -51,3 +53,6 @@ services:
       MYSQL_USER: oneapi # 创建专用用户
       MYSQL_PASSWORD: "123456" # 设置专用用户密码
       MYSQL_DATABASE: done-hub # 自动创建数据库
+networks:
+  dokploy-network:
+    external: true
