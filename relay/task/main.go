@@ -73,11 +73,6 @@ func RelayTaskSubmit(c *gin.Context) {
 
 	retryTimes := config.RetryTimes
 
-	if !taskAdaptor.ShouldRetry(c, taskErr) {
-		logger.LogError(c.Request.Context(), fmt.Sprintf("relay error happen, status code is %d, won't retry in this case", taskErr.StatusCode))
-		retryTimes = 0
-	}
-
 	// 在重试开始前计算并缓存总渠道数，避免重试过程中动态变化
 	groupName := c.GetString("token_group")
 	if groupName == "" {
@@ -85,6 +80,14 @@ func RelayTaskSubmit(c *gin.Context) {
 	}
 	modelName := taskAdaptor.GetModelName()
 	totalChannelsAtStart := model.ChannelGroup.CountAvailableChannels(groupName, modelName)
+
+	channel := taskAdaptor.GetProvider().GetChannel()
+
+	if !taskAdaptor.ShouldRetry(c, taskErr) {
+		logger.LogError(c.Request.Context(), fmt.Sprintf("retry_skip model=%s channel_id=%d status_code=%d should_retry=false total_channels=%d error=\"%s\"",
+			modelName, channel.Id, taskErr.StatusCode, totalChannelsAtStart, taskErr.Message))
+		retryTimes = 0
+	}
 
 	// 实际重试次数 = min(配置的重试数, 可用渠道数)
 	actualRetryTimes := retryTimes
@@ -96,7 +99,9 @@ func RelayTaskSubmit(c *gin.Context) {
 	c.Set("actual_retry_times", actualRetryTimes)
 	c.Set("attempt_count", 1) // 初始化尝试计数
 
-	channel := taskAdaptor.GetProvider().GetChannel()
+	// 记录初始失败 - 使用统一的结构化日志格式
+	logger.LogError(c.Request.Context(), fmt.Sprintf("retry_start model=%s channel_id=%d total_channels=%d config_max_retries=%d actual_max_retries=%d status_code=%d error=\"%s\"",
+		modelName, channel.Id, totalChannelsAtStart, retryTimes, actualRetryTimes, taskErr.StatusCode, taskErr.Message))
 	for i := actualRetryTimes; i > 0; i-- {
 		model.ChannelGroup.SetCooldowns(channel.Id, taskAdaptor.GetModelName())
 		taskErr = taskAdaptor.SetProvider()
@@ -126,22 +131,38 @@ func RelayTaskSubmit(c *gin.Context) {
 		// 获取实际重试次数
 		actualRetryTimes := c.GetInt("actual_retry_times")
 
-		logger.LogError(c.Request.Context(), fmt.Sprintf("using channel #%d(%s) to retry (attempt %d/%d, remain channels %d, total channels %d)", channel.Id, channel.Name, attemptCount, actualRetryTimes, remainChannels, c.GetInt("total_channels_at_start")))
+		// 记录重试尝试 - 使用统一的结构化日志格式
+		logger.LogWarn(c.Request.Context(), fmt.Sprintf("retry_attempt model=%s channel_id=%d attempt=%d/%d remaining_channels=%d total_channels=%d",
+			modelName, channel.Id, attemptCount, actualRetryTimes, remainChannels, c.GetInt("total_channels_at_start")))
 
 		taskErr = taskAdaptor.Relay()
 		if taskErr == nil {
+			// 重试成功
+			logger.LogInfo(c.Request.Context(), fmt.Sprintf("retry_success model=%s channel_id=%d attempt=%d/%d total_channels=%d",
+				modelName, channel.Id, attemptCount, actualRetryTimes, c.GetInt("total_channels_at_start")))
 			go CompletedTask(quotaInstance, taskAdaptor, c)
 			return
 		}
 
+		// 记录重试失败
+		logger.LogError(c.Request.Context(), fmt.Sprintf("retry_failed model=%s channel_id=%d attempt=%d/%d status_code=%d error=\"%s\"",
+			modelName, channel.Id, attemptCount, actualRetryTimes, taskErr.StatusCode, taskErr.Message))
+
 		quotaInstance.Undo(c)
 		if !taskAdaptor.ShouldRetry(c, taskErr) {
+			logger.LogError(c.Request.Context(), fmt.Sprintf("retry_stop_condition model=%s channel_id=%d attempt=%d/%d should_retry=false",
+				modelName, channel.Id, attemptCount, actualRetryTimes))
 			break
 		}
 
 	}
 
+	// 记录最终失败
 	if taskErr != nil {
+		finalAttempt := c.GetInt("attempt_count")
+		actualRetryTimes := c.GetInt("actual_retry_times")
+		logger.LogError(c.Request.Context(), fmt.Sprintf("retry_exhausted model=%s channel_id=%d total_attempts=%d total_channels=%d config_max_retries=%d actual_max_retries=%d status_code=%d error=\"%s\"",
+			modelName, channel.Id, finalAttempt, c.GetInt("total_channels_at_start"), retryTimes, actualRetryTimes, taskErr.StatusCode, taskErr.Message))
 		taskAdaptor.HandleError(taskErr)
 	}
 

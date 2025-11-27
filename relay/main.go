@@ -63,14 +63,6 @@ func Relay(c *gin.Context) {
 	go processChannelRelayError(c.Request.Context(), channel.Id, channel.Name, apiErr, channel.Type)
 
 	retryTimes := config.RetryTimes
-	if done || !shouldRetry(c, apiErr, channel.Type) {
-		logger.LogError(c.Request.Context(), fmt.Sprintf("relay error happen, status code is %d, won't retry in this case", apiErr.StatusCode))
-		retryTimes = 0
-	}
-
-	startTime := c.GetTime("requestStartTime")
-	timeout := time.Duration(config.RetryTimeOut) * time.Second
-
 	// 在重试开始前计算并缓存总渠道数，避免重试过程中动态变化
 	groupName := c.GetString("token_group")
 	if groupName == "" {
@@ -78,6 +70,15 @@ func Relay(c *gin.Context) {
 	}
 	modelName := c.GetString("new_model")
 	totalChannelsAtStart := model.ChannelGroup.CountAvailableChannels(groupName, modelName)
+
+	if done || !shouldRetry(c, apiErr, channel.Type) {
+		logger.LogError(c.Request.Context(), fmt.Sprintf("retry_skip model=%s channel_id=%d status_code=%d done=%t should_retry=%t total_channels=%d error=\"%s\"",
+			modelName, channel.Id, apiErr.StatusCode, done, shouldRetry(c, apiErr, channel.Type), totalChannelsAtStart, utils.TruncateBase64InMessage(apiErr.OpenAIError.Message)))
+		retryTimes = 0
+	}
+
+	startTime := c.GetTime("requestStartTime")
+	timeout := time.Duration(config.RetryTimeOut) * time.Second
 
 	// 实际重试次数 = min(配置的重试数, 可用渠道数)
 	actualRetryTimes := retryTimes
@@ -89,9 +90,9 @@ func Relay(c *gin.Context) {
 	c.Set("actual_retry_times", actualRetryTimes)
 	c.Set("attempt_count", 1) // 初始化尝试计数
 
-	// 记录初始失败 - 使用OpenAI风格的结构化日志
-	logger.LogError(c.Request.Context(), fmt.Sprintf("retry_start model=%s total_channels=%d config_max_retries=%d actual_max_retries=%d initial_error=\"%s\" status_code=%d",
-		modelName, totalChannelsAtStart, retryTimes, actualRetryTimes, utils.TruncateBase64InMessage(apiErr.OpenAIError.Message), apiErr.StatusCode))
+	// 记录初始失败 - 使用统一的结构化日志格式
+	logger.LogError(c.Request.Context(), fmt.Sprintf("retry_start model=%s channel_id=%d total_channels=%d config_max_retries=%d actual_max_retries=%d status_code=%d error=\"%s\"",
+		modelName, channel.Id, totalChannelsAtStart, retryTimes, actualRetryTimes, apiErr.StatusCode, utils.TruncateBase64InMessage(apiErr.OpenAIError.Message)))
 
 	if apiErr.StatusCode != http.StatusUnauthorized && apiErr.StatusCode != http.StatusForbidden {
 		c.Set("first_non_auth_error", apiErr)
@@ -102,14 +103,15 @@ func Relay(c *gin.Context) {
 		cooldownApplied := shouldCooldowns(c, channel, apiErr)
 
 		if time.Since(startTime) > timeout {
-			logger.LogError(c.Request.Context(), fmt.Sprintf("retry_timeout elapsed_time=%.2fs timeout=%.2fs",
-				time.Since(startTime).Seconds(), timeout.Seconds()))
+			logger.LogError(c.Request.Context(), fmt.Sprintf("retry_timeout model=%s channel_id=%d elapsed_time=%.2fs timeout=%.2fs",
+				modelName, channel.Id, time.Since(startTime).Seconds(), timeout.Seconds()))
 			apiErr = common.StringErrorWrapperLocal("重试超时，上游负载已饱和，请稍后再试", "system_error", http.StatusTooManyRequests)
 			break
 		}
 
 		if err := relay.setProvider(relay.getOriginalModel()); err != nil {
-			logger.LogError(c.Request.Context(), fmt.Sprintf("retry_provider_error error=\"%s\"", err.Error()))
+			logger.LogError(c.Request.Context(), fmt.Sprintf("retry_provider_error model=%s channel_id=%d error=\"%s\"",
+				modelName, channel.Id, err.Error()))
 			break
 		}
 
@@ -128,22 +130,22 @@ func Relay(c *gin.Context) {
 		// 获取实际重试次数
 		actualRetryTimes := c.GetInt("actual_retry_times")
 
-		// 记录重试尝试 - 按照OpenAI规范的结构化日志
-		logger.LogWarn(c.Request.Context(), fmt.Sprintf("retry_attempt attempt=%d/%d channel_id=%d channel_name=\"%s\" remaining_channels=%d cooldown_applied=%t",
-			attemptCount, actualRetryTimes, channel.Id, channel.Name, remainChannels, cooldownApplied))
+		// 记录重试尝试 - 使用统一的结构化日志格式
+		logger.LogWarn(c.Request.Context(), fmt.Sprintf("retry_attempt model=%s channel_id=%d attempt=%d/%d remaining_channels=%d total_channels=%d cooldown_applied=%t",
+			modelName, channel.Id, attemptCount, actualRetryTimes, remainChannels, c.GetInt("total_channels_at_start"), cooldownApplied))
 
 		apiErr, done = RelayHandler(relay)
 		if apiErr == nil {
 			// 重试成功
-			logger.LogInfo(c.Request.Context(), fmt.Sprintf("retry_success attempt=%d/%d channel_id=%d final_channel=\"%s\"",
-				attemptCount, actualRetryTimes, channel.Id, channel.Name))
+			logger.LogInfo(c.Request.Context(), fmt.Sprintf("retry_success model=%s channel_id=%d attempt=%d/%d total_channels=%d",
+				modelName, channel.Id, attemptCount, actualRetryTimes, c.GetInt("total_channels_at_start")))
 			metrics.RecordProvider(c, 200)
 			return
 		}
 
 		// 记录重试失败
-		logger.LogError(c.Request.Context(), fmt.Sprintf("retry_failed attempt=%d/%d channel_id=%d status_code=%d error_type=\"%s\" error=\"%s\"",
-			attemptCount, actualRetryTimes, channel.Id, apiErr.StatusCode, apiErr.OpenAIError.Type, utils.TruncateBase64InMessage(apiErr.OpenAIError.Message)))
+		logger.LogError(c.Request.Context(), fmt.Sprintf("retry_failed model=%s channel_id=%d attempt=%d/%d status_code=%d error_type=\"%s\" error=\"%s\"",
+			modelName, channel.Id, attemptCount, actualRetryTimes, apiErr.StatusCode, apiErr.OpenAIError.Type, utils.TruncateBase64InMessage(apiErr.OpenAIError.Message)))
 
 		if apiErr.StatusCode != http.StatusUnauthorized && apiErr.StatusCode != http.StatusForbidden {
 			if _, exists := c.Get("first_non_auth_error"); !exists {
@@ -153,8 +155,8 @@ func Relay(c *gin.Context) {
 
 		go processChannelRelayError(c.Request.Context(), channel.Id, channel.Name, apiErr, channel.Type)
 		if done || !shouldRetry(c, apiErr, channel.Type) {
-			logger.LogError(c.Request.Context(), fmt.Sprintf("retry_stop_condition attempt=%d/%d done=%t should_retry=%t",
-				attemptCount, actualRetryTimes, done, shouldRetry(c, apiErr, channel.Type)))
+			logger.LogError(c.Request.Context(), fmt.Sprintf("retry_stop_condition model=%s channel_id=%d attempt=%d/%d done=%t should_retry=%t",
+				modelName, channel.Id, attemptCount, actualRetryTimes, done, shouldRetry(c, apiErr, channel.Type)))
 			break
 		}
 	}
@@ -162,10 +164,16 @@ func Relay(c *gin.Context) {
 	// 记录最终失败
 	finalAttempt := c.GetInt("attempt_count")
 	actualRetryTimes = c.GetInt("actual_retry_times")
-	logger.LogError(c.Request.Context(), fmt.Sprintf("retry_exhausted total_attempts=%d actual_max_retries=%d config_max_retries=%d final_error=\"%s\" status_code=%d",
-		finalAttempt, actualRetryTimes, retryTimes, utils.TruncateBase64InMessage(apiErr.OpenAIError.Message), apiErr.StatusCode))
+	logger.LogError(c.Request.Context(), fmt.Sprintf("retry_exhausted model=%s channel_id=%d total_attempts=%d total_channels=%d config_max_retries=%d actual_max_retries=%d status_code=%d error=\"%s\"",
+		modelName, channel.Id, finalAttempt, c.GetInt("total_channels_at_start"), retryTimes, actualRetryTimes, apiErr.StatusCode, utils.TruncateBase64InMessage(apiErr.OpenAIError.Message)))
 
 	if apiErr != nil {
+		// 确保 channel_type 存在，用于 FilterOpenAIErr 正确过滤错误
+		// 如果 channel_type 为 0（可能在重试失败后被清空），使用最后一个渠道的类型
+		if c.GetInt("channel_type") == 0 && channel != nil {
+			c.Set("channel_type", channel.Type)
+		}
+
 		if heartbeat != nil && heartbeat.IsSafeWriteStream() {
 			relay.HandleStreamError(apiErr)
 			return
@@ -220,10 +228,30 @@ func shouldCooldowns(c *gin.Context, channel *model.Channel, apiErr *types.OpenA
 
 	// 如果是频率限制，冻结通道
 	if apiErr.StatusCode == http.StatusTooManyRequests {
-		model.ChannelGroup.SetCooldowns(channelId, modelName)
-		cooldownApplied = true
-		logger.LogWarn(c.Request.Context(), fmt.Sprintf("channel_cooldown channel_id=%d model=\"%s\" duration=%ds reason=\"rate_limit\"",
-			channelId, modelName, config.RetryCooldownSeconds))
+		// 检查是否有响应头中的冻结时间（如 ClaudeCode 的 anthropic-ratelimit-unified-reset）
+		if apiErr.RateLimitResetAt > 0 {
+			// 使用响应头中的冻结时间
+			nowTime := time.Now().Unix()
+			durationSeconds := apiErr.RateLimitResetAt - nowTime
+			if durationSeconds > 0 {
+				model.ChannelGroup.SetCooldownsWithDuration(channelId, modelName, durationSeconds)
+				cooldownApplied = true
+				logger.LogWarn(c.Request.Context(), fmt.Sprintf("channel_cooldown channel_id=%d model=\"%s\" duration=%ds reason=\"rate_limit\" reset_at=%s",
+					channelId, modelName, durationSeconds, time.Unix(apiErr.RateLimitResetAt, 0).Format(time.RFC3339)))
+			} else {
+				// 冻结时间已过，使用默认冻结时间
+				model.ChannelGroup.SetCooldowns(channelId, modelName)
+				cooldownApplied = true
+				logger.LogWarn(c.Request.Context(), fmt.Sprintf("channel_cooldown channel_id=%d model=\"%s\" duration=%ds reason=\"rate_limit\"",
+					channelId, modelName, config.RetryCooldownSeconds))
+			}
+		} else {
+			// 没有响应头中的冻结时间，使用配置中的默认冻结时间
+			model.ChannelGroup.SetCooldowns(channelId, modelName)
+			cooldownApplied = true
+			logger.LogWarn(c.Request.Context(), fmt.Sprintf("channel_cooldown channel_id=%d model=\"%s\" duration=%ds reason=\"rate_limit\"",
+				channelId, modelName, config.RetryCooldownSeconds))
+		}
 	}
 
 	skipChannelIds, ok := utils.GetGinValue[[]int](c, "skip_channel_ids")

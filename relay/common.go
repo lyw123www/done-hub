@@ -1,6 +1,7 @@
 package relay
 
 import (
+	"bytes"
 	"context"
 	"done-hub/common"
 	"done-hub/common/config"
@@ -82,27 +83,27 @@ func CheckLimitModel(c *gin.Context, modelName string) error {
 	}
 
 	// 检查是否启用了模型限制
-	if !setting.Limits.Enabled {
+	if !setting.Limits.LimitModelSetting.Enabled {
 		// 未启用模型限制，允许所有模型
 		return nil
 	}
 
 	// 检查模型列表是否为空
-	if len(setting.Limits.Models) == 0 {
-		// 模型列表为空，不允许任何模型
-		return errors.New("当前令牌未配置可用模型")
+	if len(setting.Limits.LimitModelSetting.Models) == 0 {
+		// Empty model list means no models are allowed
+		return errors.New("No available models configured for current token")
 	}
 
-	// 检查modelName是否在允许的模型列表中
-	for _, allowedModel := range setting.Limits.Models {
+	// Check if modelName is in the allowed models list
+	for _, allowedModel := range setting.Limits.LimitModelSetting.Models {
 		if allowedModel == modelName {
-			// 找到匹配的模型，允许使用
+			// Found matching model, allow usage
 			return nil
 		}
 	}
 
-	// modelName不在允许的模型列表中
-	return fmt.Errorf("当前令牌不支持模型: %s", modelName)
+	// modelName is not in the allowed models list
+	return fmt.Errorf("Model %s is not supported for current token", modelName)
 }
 
 // buildGroupChain 构建分组降级链
@@ -285,7 +286,8 @@ func fetchChannelByModel(c *gin.Context, modelName string) (*model.Channel, erro
 	group := c.GetString("token_group")
 	filters := buildChannelFilters(c, modelName)
 
-	channel, err := model.ChannelGroup.NextByValidatedModel(group, modelName, filters...)
+	// 传递 gin.Context 给 balancer，用于生成 session hash
+	channel, err := model.ChannelGroup.NextByValidatedModel(group, modelName, c, filters...)
 	if err != nil {
 		// 这里只处理渠道相关的错误，模型匹配错误已在上层处理
 		message := fmt.Sprintf(model.ErrNoAvailableChannelForModel, group, modelName)
@@ -300,12 +302,18 @@ func fetchChannelByModel(c *gin.Context, modelName string) (*model.Channel, erro
 }
 
 func responseJsonClient(c *gin.Context, data interface{}) *types.OpenAIErrorWithStatusCode {
-	// 将data转换为 JSON
-	responseBody, err := json.Marshal(data)
+	// 将data转换为 JSON，禁用 HTML 转义以避免 & 被转为 \u0026
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
+	encoder.SetEscapeHTML(false)
+	err := encoder.Encode(data)
 	if err != nil {
 		logger.LogError(c.Request.Context(), "marshal_response_body_failed:"+err.Error())
 		return nil
 	}
+
+	// Encode 会在末尾添加换行符，需要去掉
+	responseBody := bytes.TrimSuffix(buf.Bytes(), []byte("\n"))
 
 	c.Writer.Header().Set("Content-Type", "application/json")
 	c.Writer.WriteHeader(http.StatusOK)
@@ -607,15 +615,9 @@ func FilterOpenAIErr(c *gin.Context, err *types.OpenAIErrorWithStatusCode) (errW
 	requestId := c.GetString(logger.RequestIdKey)
 	newErr.OpenAIError.Message = utils.MessageWithRequestId(newErr.OpenAIError.Message, requestId)
 
-	if !newErr.LocalError && newErr.OpenAIError.Type == "one_hub_error" || strings.HasSuffix(newErr.OpenAIError.Type, "_api_error") {
-		newErr.OpenAIError.Type = "system_error"
-		if utils.ContainsString(newErr.Message, quotaKeywords) {
-			newErr.Message = "上游负载已饱和，请稍后再试"
-			newErr.StatusCode = http.StatusTooManyRequests
-		}
-	}
-
 	channelType := c.GetInt("channel_type")
+
+	// GeminiCli 错误处理（优先处理，避免被通用逻辑覆盖）
 	if channelType == config.ChannelTypeGeminiCli && !newErr.LocalError {
 		if newErr.OpenAIError.Type == "geminicli_error" || newErr.OpenAIError.Type == "geminicli_token_error" {
 			if newErr.StatusCode == http.StatusUnauthorized || newErr.StatusCode == http.StatusForbidden {
@@ -636,9 +638,75 @@ func FilterOpenAIErr(c *gin.Context, err *types.OpenAIErrorWithStatusCode) (errW
 				}
 				newErr.OpenAIError.Message = utils.MessageWithRequestId("上游负载已饱和，请稍后再试", requestId)
 				newErr.StatusCode = http.StatusTooManyRequests
+				return newErr
 			} else {
 				newErr.OpenAIError.Type = "system_error"
 			}
+		}
+	}
+
+	// ClaudeCode 错误处理（优先处理，避免被通用逻辑覆盖）
+	if channelType == config.ChannelTypeClaudeCode && !newErr.LocalError {
+		if newErr.OpenAIError.Type == "claudecode_error" || newErr.OpenAIError.Type == "claudecode_token_error" {
+			if newErr.StatusCode == http.StatusUnauthorized || newErr.StatusCode == http.StatusForbidden {
+				if cachedErr, exists := c.Get("first_non_auth_error"); exists {
+					if firstErr, ok := cachedErr.(*types.OpenAIErrorWithStatusCode); ok {
+						newErr = *firstErr
+						if newErr.OpenAIError.Type == "claudecode_error" {
+							newErr.OpenAIError.Type = "system_error"
+						}
+						newErr.OpenAIError.Message = utils.MessageWithRequestId(newErr.OpenAIError.Message, requestId)
+						return newErr
+					}
+				}
+				if newErr.StatusCode == http.StatusUnauthorized {
+					newErr.OpenAIError.Type = "authentication_error"
+				} else {
+					newErr.OpenAIError.Type = "access_denied"
+				}
+				newErr.OpenAIError.Message = utils.MessageWithRequestId("上游负载已饱和，请稍后再试", requestId)
+				newErr.StatusCode = http.StatusTooManyRequests
+				return newErr
+			} else {
+				newErr.OpenAIError.Type = "system_error"
+			}
+		}
+	}
+
+	// Codex 错误处理（优先处理，避免被通用逻辑覆盖）
+	if channelType == config.ChannelTypeCodex && !newErr.LocalError {
+		if newErr.OpenAIError.Type == "codex_error" || newErr.OpenAIError.Type == "codex_token_error" {
+			if newErr.StatusCode == http.StatusUnauthorized || newErr.StatusCode == http.StatusForbidden {
+				if cachedErr, exists := c.Get("first_non_auth_error"); exists {
+					if firstErr, ok := cachedErr.(*types.OpenAIErrorWithStatusCode); ok {
+						newErr = *firstErr
+						if newErr.OpenAIError.Type == "codex_error" {
+							newErr.OpenAIError.Type = "system_error"
+						}
+						newErr.OpenAIError.Message = utils.MessageWithRequestId(newErr.OpenAIError.Message, requestId)
+						return newErr
+					}
+				}
+				if newErr.StatusCode == http.StatusUnauthorized {
+					newErr.OpenAIError.Type = "authentication_error"
+				} else {
+					newErr.OpenAIError.Type = "access_denied"
+				}
+				newErr.OpenAIError.Message = utils.MessageWithRequestId("上游负载已饱和，请稍后再试", requestId)
+				newErr.StatusCode = http.StatusTooManyRequests
+				return newErr
+			} else {
+				newErr.OpenAIError.Type = "system_error"
+			}
+		}
+	}
+
+	// 通用错误处理
+	if !newErr.LocalError && (newErr.OpenAIError.Type == "one_hub_error" || strings.HasSuffix(newErr.OpenAIError.Type, "_api_error")) {
+		newErr.OpenAIError.Type = "system_error"
+		if utils.ContainsString(newErr.Message, quotaKeywords) {
+			newErr.Message = "上游负载已饱和，请稍后再试"
+			newErr.StatusCode = http.StatusTooManyRequests
 		}
 	}
 

@@ -58,6 +58,7 @@ type ChatCompletionMessage struct {
 	Annotations      any                              `json:"annotations,omitempty"`
 	Image            []MultimediaData                 `json:"image,omitempty"`
 	Images           []ChatMessagePart                `json:"images,omitempty"`
+	CacheControl     any                              `json:"cache_control,omitempty"`
 }
 
 func (m ChatCompletionMessage) StringContent() string {
@@ -179,6 +180,7 @@ type FormatJsonSchema struct {
 type ChatCompletionRequest struct {
 	Model               string                        `json:"model" binding:"required"`
 	Messages            []ChatCompletionMessage       `json:"messages" binding:"required"`
+	System              any                           `json:"system,omitempty"`
 	MaxTokens           int                           `json:"max_tokens,omitempty"`
 	MaxCompletionTokens int                           `json:"max_completion_tokens,omitempty"`
 	Temperature         *float64                      `json:"temperature,omitempty"`
@@ -206,7 +208,9 @@ type ChatCompletionRequest struct {
 	ReasoningEffort     *string                       `json:"reasoning_effort,omitempty"`
 	Prediction          any                           `json:"prediction,omitempty"`
 	WebSearchOptions    *WebSearchOptions             `json:"web_search_options,omitempty"`
-	Verbosity           string                        `json:"verbosity,omitempty"` // 用于控制输出的详细程度
+	Verbosity           string                        `json:"verbosity,omitempty"`    // 用于控制输出的详细程度
+	Store               *bool                         `json:"store,omitempty"`        // ChatGPT 是否存储对话（Codex 要求设置为 false）
+	Instructions        *string                       `json:"instructions,omitempty"` // Codex CLI 系统提示词
 
 	Reasoning *ChatReasoning `json:"reasoning,omitempty"`
 

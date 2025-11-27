@@ -45,11 +45,20 @@ func ShouldDisableChannel(channelType int, err *types.OpenAIErrorWithStatusCode)
 		return false
 	}
 
-	// 状态码检查
+	// 状态码检查（优先级最高）
 	if err.StatusCode == http.StatusUnauthorized {
 		return true
 	}
-	if err.StatusCode == http.StatusForbidden && channelType == config.ChannelTypeGemini {
+	// 403 Forbidden 自动禁用（Gemini, Codex, GeminiCli, ClaudeCode）
+	if err.StatusCode == http.StatusForbidden {
+		switch channelType {
+		case config.ChannelTypeGemini, config.ChannelTypeCodex, config.ChannelTypeGeminiCli, config.ChannelTypeClaudeCode:
+			return true
+		}
+	}
+
+	// 禁用关键词检查
+	if common.DisableChannelKeywordsInstance.IsContains(err.OpenAIError.Message) {
 		return true
 	}
 
@@ -70,7 +79,7 @@ func ShouldDisableChannel(channelType int, err *types.OpenAIErrorWithStatusCode)
 		return true
 	}
 
-	return common.DisableChannelKeywordsInstance.IsContains(err.OpenAIError.Message)
+	return false
 }
 
 // disable & notify

@@ -192,6 +192,23 @@ func SetApiRouter(router *gin.Engine) {
 			channelRoute.DELETE("/:id", controller.DeleteChannel)
 			channelRoute.DELETE("/batch", controller.BatchDeleteChannel)
 		}
+
+		// ClaudeCode OAuth routes
+		claudeCodeRoute := apiRouter.Group("/claudecode")
+		claudeCodeRoute.Use(middleware.AdminAuth())
+		{
+			claudeCodeRoute.POST("/oauth/start", controller.StartClaudeCodeOAuth)
+			claudeCodeRoute.POST("/oauth/exchange-code", controller.ClaudeCodeOAuthCallback)
+		}
+
+		// Codex OAuth routes
+		codexRoute := apiRouter.Group("/codex")
+		codexRoute.Use(middleware.AdminAuth())
+		{
+			codexRoute.POST("/oauth/start", controller.StartCodexOAuth)
+			codexRoute.POST("/oauth/exchange-code", controller.CodexOAuthCallback)
+		}
+
 		channelTagRoute := apiRouter.Group("/channel_tag")
 		channelTagRoute.Use(middleware.AdminAuth())
 		{

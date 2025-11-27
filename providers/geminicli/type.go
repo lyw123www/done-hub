@@ -1,6 +1,7 @@
 package geminicli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -51,7 +52,7 @@ func (c *OAuth2Credentials) IsExpired() bool {
 }
 
 // Refresh 刷新访问令牌
-func (c *OAuth2Credentials) Refresh(proxyURL string, maxRetries int) error {
+func (c *OAuth2Credentials) Refresh(ctx context.Context, proxyURL string, maxRetries int) error {
 	if c.RefreshToken == "" {
 		return fmt.Errorf("refresh token is empty")
 	}
@@ -77,9 +78,16 @@ func (c *OAuth2Credentials) Refresh(proxyURL string, maxRetries int) error {
 	var lastErr error
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
-			// 指数退避
+			// 指数退避，最大 30 秒
 			backoff := time.Duration(1<<uint(attempt-1)) * time.Second
-			logger.SysLog(fmt.Sprintf("Token refresh retry %d/%d after %v", attempt, maxRetries, backoff))
+			if backoff > 30*time.Second {
+				backoff = 30 * time.Second
+			}
+			if ctx != nil {
+				logger.LogError(ctx, fmt.Sprintf("[GeminiCli] Token refresh retry %d/%d after %v", attempt, maxRetries, backoff))
+			} else {
+				logger.SysLog(fmt.Sprintf("[GeminiCli] Token refresh retry %d/%d after %v", attempt, maxRetries, backoff))
+			}
 			time.Sleep(backoff)
 		}
 
@@ -157,7 +165,11 @@ func (c *OAuth2Credentials) Refresh(proxyURL string, maxRetries int) error {
 			c.ExpiresAt = time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
 		}
 
-		logger.SysLog(fmt.Sprintf("Token refreshed successfully, expires at: %s", c.ExpiresAt.Format(time.RFC3339)))
+		if ctx != nil {
+			logger.LogInfo(ctx, fmt.Sprintf("[GeminiCli] Token refreshed successfully, expires at: %s", c.ExpiresAt.Format(time.RFC3339)))
+		} else {
+			logger.SysLog(fmt.Sprintf("[GeminiCli] Token refreshed successfully, expires at: %s", c.ExpiresAt.Format(time.RFC3339)))
+		}
 		return nil
 	}
 

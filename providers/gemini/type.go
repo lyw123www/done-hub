@@ -186,6 +186,9 @@ type GeminiPart struct {
 	ExecutableCode      *GeminiPartExecutableCode      `json:"executableCode,omitempty"`
 	CodeExecutionResult *GeminiPartCodeExecutionResult `json:"codeExecutionResult,omitempty"`
 	Thought             bool                           `json:"thought,omitempty"` // 是否是思考内容
+	ThoughtSignature    json.RawMessage                `json:"thoughtSignature,omitempty"`
+	MediaResolution     json.RawMessage                `json:"mediaResolution,omitempty"`
+	VideoMetadata       json.RawMessage                `json:"videoMetadata,omitempty"`
 }
 
 type GeminiPartExecutableCode struct {
@@ -267,6 +270,14 @@ func (candidate *GeminiChatCandidate) ToOpenAIStreamChoice(request *types.ChatCo
 
 	if len(images) > 0 {
 		choice.Delta.Image = images
+	}
+
+	// Add grounding metadata as markdown citations
+	if candidate.GroundingMetadata != nil && showGoogleSearchMeta(request) {
+		groundingMarkdown := formatGroundingMetadataAsMarkdown(candidate.GroundingMetadata)
+		if groundingMarkdown != "" {
+			content = append(content, "\n\n"+groundingMarkdown)
+		}
 	}
 
 	choice.Delta.Content = strings.Join(content, "\n")
@@ -360,6 +371,18 @@ func (candidate *GeminiChatCandidate) ToOpenAIChoice(request *types.ChatCompleti
 
 	choice.Message.Content = strings.Join(content, "\n")
 
+	// Add grounding metadata as markdown citations
+	if candidate.GroundingMetadata != nil && showGoogleSearchMeta(request) {
+		groundingMarkdown := formatGroundingMetadataAsMarkdown(candidate.GroundingMetadata)
+		if groundingMarkdown != "" {
+			if contentStr, ok := choice.Message.Content.(string); ok && contentStr != "" {
+				choice.Message.Content = contentStr + "\n\n" + groundingMarkdown
+			} else {
+				choice.Message.Content = groundingMarkdown
+			}
+		}
+	}
+
 	if len(reasoningContent) > 0 {
 		choice.Message.ReasoningContent = strings.Join(reasoningContent, "\n")
 	}
@@ -386,8 +409,12 @@ func (candidate *GeminiChatCandidate) ToOpenAIChoice(request *types.ChatCompleti
 }
 
 type GeminiFunctionResponse struct {
-	Name     string `json:"name,omitempty"`
-	Response any    `json:"response,omitempty"`
+	Name         string          `json:"name,omitempty"`
+	Response     any             `json:"response,omitempty"`
+	WillContinue json.RawMessage `json:"willContinue,omitempty"`
+	Scheduling   json.RawMessage `json:"scheduling,omitempty"`
+	Parts        json.RawMessage `json:"parts,omitempty"`
+	ID           json.RawMessage `json:"id,omitempty"`
 }
 
 type GeminiFunctionResponseContent struct {
@@ -454,9 +481,17 @@ type ThinkingConfig struct {
 }
 
 type GeminiError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Status  string `json:"status"`
+	Code    int                  `json:"code"`
+	Message string               `json:"message"`
+	Status  string               `json:"status"`
+	Details []GeminiErrorDetails `json:"details,omitempty"`
+}
+
+type GeminiErrorDetails struct {
+	Type     string                 `json:"@type,omitempty"`
+	Reason   string                 `json:"reason,omitempty"`
+	Domain   string                 `json:"domain,omitempty"`
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 
 func (e *GeminiError) Error() string {
@@ -924,4 +959,54 @@ type VeoOperationError struct {
 func isEmptyOrOnlyNewlines(s string) bool {
 	trimmed := strings.TrimSpace(s)
 	return trimmed == ""
+}
+
+// checks if googleSearch tool has "show" parameter
+func showGoogleSearchMeta(request *types.ChatCompletionRequest) bool {
+	functions := request.GetFunctions()
+	if functions == nil {
+		return false
+	}
+
+	for _, function := range functions {
+		if function.Name == "googleSearch" && function.Parameters != nil {
+			if paramStr, ok := function.Parameters.(string); ok && paramStr == "show" {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// formats grounding metadata as markdown citation
+func formatGroundingMetadataAsMarkdown(metadata *GeminiGroundingMetadata) string {
+	if metadata == nil || len(metadata.GroundingChunks) == 0 {
+		return ""
+	}
+	var result strings.Builder
+	// Add search queries
+	if len(metadata.WebSearchQueries) > 0 {
+		result.WriteString("> Searched ")
+		for i, query := range metadata.WebSearchQueries {
+			if i > 0 {
+				result.WriteString(" and ")
+			}
+			result.WriteString(fmt.Sprintf(`"%s"`, query))
+		}
+		result.WriteString("\n")
+	}
+	// Add grounding chunks as numbered list
+	linkCount := 0
+	for _, chunk := range metadata.GroundingChunks {
+		if chunk.Web != nil && chunk.Web.Uri != "" {
+			linkCount++
+			title := chunk.Web.Title
+			if title == "" {
+				title = chunk.Web.Uri
+			}
+			result.WriteString(fmt.Sprintf("> %d. [%s](%s)\n", linkCount, title, chunk.Web.Uri))
+		}
+	}
+	return result.String()
 }

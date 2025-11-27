@@ -13,7 +13,9 @@ import (
 	"done-hub/providers/base"
 	"done-hub/providers/bedrock"
 	"done-hub/providers/claude"
+	"done-hub/providers/claudecode"
 	"done-hub/providers/cloudflareAI"
+	"done-hub/providers/codex"
 	"done-hub/providers/cohere"
 	"done-hub/providers/coze"
 	"done-hub/providers/deepseek"
@@ -95,6 +97,8 @@ func init() {
 		config.ChannelTypeAzureV1:         azure_v1.AzureV1ProviderFactory{},
 		config.ChannelTypeXAI:             xAI.XAIProviderFactory{},
 		config.ChannelTypeGeminiCli:       geminicli.GeminiCliProviderFactory{},
+		config.ChannelTypeClaudeCode:      claudecode.ClaudeCodeProviderFactory{},
+		config.ChannelTypeCodex:           codex.CodexProviderFactory{},
 	}
 }
 

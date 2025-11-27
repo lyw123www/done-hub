@@ -64,8 +64,8 @@ func (token *Token) AfterCreate(tx *gorm.DB) (err error) {
 }
 
 type TokenSetting struct {
-	Heartbeat HeartbeatSetting  `json:"heartbeat,omitempty"`
-	Limits    LimitModelSetting `json:"limits,omitempty"`
+	Heartbeat HeartbeatSetting `json:"heartbeat,omitempty"`
+	Limits    LimitsConfig     `json:"limits,omitempty"`
 }
 
 type HeartbeatSetting struct {
@@ -73,9 +73,19 @@ type HeartbeatSetting struct {
 	TimeoutSeconds int  `json:"timeout_seconds"`
 }
 
+type LimitsConfig struct {
+	LimitModelSetting LimitModelSetting `json:"limit_model_setting,omitempty"`
+	LimitsIPSetting   LimitsIPSetting   `json:"limits_ip_setting,omitempty"`
+}
+
 type LimitModelSetting struct {
 	Enabled bool     `json:"enabled"`
 	Models  []string `json:"models"`
+}
+
+type LimitsIPSetting struct {
+	Enabled   bool     `json:"enabled"`
+	Whitelist []string `json:"whitelist"`
 }
 
 func GetUserTokensList(userId int, params *GenericParams) (*DataResult[Token], error) {
@@ -233,7 +243,14 @@ func (token *Token) Update() error {
 
 func (token *Token) SelectUpdate() error {
 	// This can update zero values
-	return DB.Model(token).Select("accessed_time", "status").Updates(token).Error
+	err := DB.Model(token).Select("accessed_time", "status").Updates(token).Error
+
+	// 清除缓存
+	if err == nil && config.RedisEnabled {
+		redis.RedisDel(fmt.Sprintf(UserTokensKey, token.Key))
+	}
+
+	return err
 }
 
 func (token *Token) Delete() error {
@@ -280,6 +297,19 @@ func increaseTokenQuota(id int, quota int) (err error) {
 			"accessed_time": utils.GetTimestamp(),
 		},
 	).Error
+
+	// 清除缓存
+	if err == nil && config.RedisEnabled {
+		var key string
+		keyCol := "`key`"
+		if common.UsingPostgreSQL {
+			keyCol = `"key"`
+		}
+		if getErr := DB.Model(&Token{}).Where("id = ?", id).Select(keyCol).Scan(&key).Error; getErr == nil && key != "" {
+			redis.RedisDel(fmt.Sprintf(UserTokensKey, key))
+		}
+	}
+
 	return err
 }
 
@@ -302,6 +332,19 @@ func decreaseTokenQuota(id int, quota int) (err error) {
 			"accessed_time": utils.GetTimestamp(),
 		},
 	).Error
+
+	// 清除缓存
+	if err == nil && config.RedisEnabled {
+		var key string
+		keyCol := "`key`"
+		if common.UsingPostgreSQL {
+			keyCol = `"key"`
+		}
+		if getErr := DB.Model(&Token{}).Where("id = ?", id).Select(keyCol).Scan(&key).Error; getErr == nil && key != "" {
+			redis.RedisDel(fmt.Sprintf(UserTokensKey, key))
+		}
+	}
+
 	return err
 }
 

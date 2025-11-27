@@ -186,7 +186,7 @@ export const CHANNEL_OPTIONS = {
     text: 'Ollama',
     value: 39,
     color: 'orange',
-    url: ''
+    url: 'https://ollama.com'
   },
   40: {
     key: 40,
@@ -277,6 +277,20 @@ export const CHANNEL_OPTIONS = {
     value: 57,
     color: 'orange',
     url: 'https://aistudio.google.com/'
+  },
+  58: {
+    key: 58,
+    text: 'ClaudeCode',
+    value: 58,
+    color: 'info',
+    url: 'https://claude.ai/'
+  },
+  59: {
+    key: 59,
+    text: 'Codex',
+    value: 59,
+    color: 'primary',
+    url: 'https://chatgpt.com/'
   },
   8: {
     key: 8,
