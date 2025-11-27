@@ -38,11 +38,15 @@ services:
     image: redis:latest
     container_name: redis
     restart: always
+    networks:
+      - dokploy-network
 
   db:
     image: mysql:8.2.0
     restart: always
     container_name: mysql
+    networks:
+      - dokploy-network
     volumes:
       - ./data/mysql:/var/lib/mysql # 挂载目录，持久化存储
     ports:
