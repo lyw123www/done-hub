@@ -2,7 +2,9 @@ version: "3.4"
 
 services:
   one-hub:
-    image: deanxv/done-hub:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     # container_name: done-hub  <-- 删除，防止冲突
     networks:
       - dokploy-network
