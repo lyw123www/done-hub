@@ -4,11 +4,10 @@ import { snackbarConstants } from 'constants/SnackbarConstants';
 import { API } from './api';
 import { CHAT_LINKS } from 'constants/chatLinks';
 import { useSelector } from 'react-redux';
+import { normalizeBrandName } from './branding';
 
 export function getSystemName() {
-  let system_name = localStorage.getItem('system_name');
-  if (!system_name) return 'Done Hub';
-  return system_name;
+  return normalizeBrandName(localStorage.getItem('system_name'));
 }
 
 export function isMobile() {

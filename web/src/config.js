@@ -1,3 +1,5 @@
+import { DEFAULT_BRAND_NAME } from './utils/branding';
+
 const config = {
   // basename: only at build time to set, and Don't add '/' at end off BASENAME for breadcrumbs, also Don't put only '/' use blank('') instead,
   // like '/berry-material-react/react/default'
@@ -24,7 +26,7 @@ const config = {
     quota_per_unit: 500000,
     server_address: '',
     start_time: 0,
-    system_name: 'Done Hub',
+    system_name: DEFAULT_BRAND_NAME,
     language: 'zh_CN',
     top_up_link: '',
     turnstile_check: false,

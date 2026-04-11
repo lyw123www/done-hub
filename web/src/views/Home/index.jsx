@@ -25,7 +25,7 @@ const Home = () => {
       }
       setHomePageContentLoaded(true);
     } catch (error) {
-      return;
+      setHomePageContentLoaded(true);
     }
   };
 

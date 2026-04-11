@@ -46,6 +46,8 @@ const Header = () => {
     setOpen(null);
   };
 
+  const hasMenuEntries = Boolean(siteInfo.UptimeEnabled || account.user);
+
   return (
     <>
       <Box
@@ -69,78 +71,26 @@ const Header = () => {
           <>
             <NoticeButton sx={{ color: theme.palette.text.primary, mr: 1 }} />
             <ThemeButton sx={{ color: theme.palette.text.primary, mr: 1 }} />
-            <I18nButton sx={{ color: theme.palette.text.primary, mr: 1 }} />
-            <IconButton
-              onClick={handleOpenMenu}
-              sx={{
-                color: theme.palette.text.primary,
-                borderRadius: '12px',
-                padding: '8px',
-                backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)',
-                '&:hover': {
-                  backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)'
-                }
-              }}
-            >
-              <IconMenu2 stroke={1.5} size="1.3rem" />
-            </IconButton>
+            {pathname !== '/' ? <I18nButton sx={{ color: theme.palette.text.primary, mr: 1 }} /> : null}
+            {hasMenuEntries ? (
+              <IconButton
+                onClick={handleOpenMenu}
+                sx={{
+                  color: theme.palette.text.primary,
+                  borderRadius: '12px',
+                  padding: '8px',
+                  backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)',
+                  '&:hover': {
+                    backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)'
+                  }
+                }}
+              >
+                <IconMenu2 stroke={1.5} size="1.3rem" />
+              </IconButton>
+            ) : null}
           </>
         ) : (
           <>
-            <Button
-              component={Link}
-              variant="text"
-              to="/"
-              color={pathname === '/' ? 'primary' : 'inherit'}
-              sx={{
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                textTransform: 'none'
-              }}
-            >
-              {t('menu.home')}
-            </Button>
-            {account.user && (
-              <Button
-                component={Link}
-                variant="text"
-                to="/playground"
-                color={pathname === '/playground' ? 'primary' : 'inherit'}
-                sx={{
-                  fontSize: '0.875rem',
-                  fontWeight: 500,
-                  textTransform: 'none'
-                }}
-              >
-                {t('playground')}
-              </Button>
-            )}
-            <Button
-              component={Link}
-              variant="text"
-              to="/price"
-              color={pathname === '/price' ? 'primary' : 'inherit'}
-              sx={{
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                textTransform: 'none'
-              }}
-            >
-              {t('price')}
-            </Button>
-            <Button
-              component={Link}
-              variant="text"
-              to="/about"
-              color={pathname === '/about' ? 'primary' : 'inherit'}
-              sx={{
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                textTransform: 'none'
-              }}
-            >
-              {t('menu.about')}
-            </Button>
             {siteInfo.UptimeEnabled && (
               <Button
                 component="a"
@@ -161,7 +111,7 @@ const Header = () => {
 
             <NoticeButton sx={{ color: theme.palette.text.primary, ml: 1 }} />
             <ThemeButton sx={{ color: theme.palette.text.primary, ml: 0.5 }} />
-            <I18nButton sx={{ color: theme.palette.text.primary, ml: 0.5 }} />
+            {pathname !== '/' ? <I18nButton sx={{ color: theme.palette.text.primary, ml: 0.5 }} /> : null}
             {account.user ? (
               <Button
                 component={Link}
@@ -254,75 +204,6 @@ const Header = () => {
                     }}
                     onClick={handleCloseMenu}
                   >
-                    <ListItemButton component={Link} to="/" selected={pathname === '/'}>
-                      <ListItemText
-                        primary={
-                          <Typography
-                            variant="body1"
-                            sx={{
-                              fontWeight: pathname === '/' ? 500 : 400,
-                              textAlign: 'center',
-                              color: pathname === '/' ? theme.palette.primary.main : theme.palette.text.primary
-                            }}
-                          >
-                            {t('menu.home')}
-                          </Typography>
-                        }
-                      />
-                    </ListItemButton>
-
-                    {account.user && (
-                      <ListItemButton component={Link} to="/playground" selected={pathname === '/playground'}>
-                        <ListItemText
-                          primary={
-                            <Typography
-                              variant="body1"
-                              sx={{
-                                fontWeight: pathname === '/playground' ? 500 : 400,
-                                textAlign: 'center',
-                                color: pathname === '/playground' ? theme.palette.primary.main : theme.palette.text.primary
-                              }}
-                            >
-                              {t('playground')}
-                            </Typography>
-                          }
-                        />
-                      </ListItemButton>
-                    )}
-
-                    <ListItemButton component={Link} to="/price" selected={pathname === '/price'}>
-                      <ListItemText
-                        primary={
-                          <Typography
-                            variant="body1"
-                            sx={{
-                              fontWeight: pathname === '/price' ? 500 : 400,
-                              textAlign: 'center',
-                              color: pathname === '/price' ? theme.palette.primary.main : theme.palette.text.primary
-                            }}
-                          >
-                            {t('price')}
-                          </Typography>
-                        }
-                      />
-                    </ListItemButton>
-
-                    <ListItemButton component={Link} to="/about" selected={pathname === '/about'}>
-                      <ListItemText
-                        primary={
-                          <Typography
-                            variant="body1"
-                            sx={{
-                              fontWeight: pathname === '/about' ? 500 : 400,
-                              textAlign: 'center',
-                              color: pathname === '/about' ? theme.palette.primary.main : theme.palette.text.primary
-                            }}
-                          >
-                            {t('menu.about')}
-                          </Typography>
-                        }
-                      />
-                    </ListItemButton>
                     {siteInfo.UptimeEnabled && (
                       <ListItemButton
                         component="a"

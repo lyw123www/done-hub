@@ -1,5 +1,6 @@
 import { lazy } from 'react';
 import { Box } from '@mui/material';
+import { Navigate } from 'react-router-dom';
 
 // project imports
 import Loadable from 'ui-component/Loadable';
@@ -14,8 +15,6 @@ const OIDCOAuth = Loadable(lazy(() => import('views/Authentication/Auth/OIDCOAut
 const LinuxDoOAuth = Loadable(lazy(() => import('views/Authentication/Auth/LinuxDoOAuth')));
 const ForgetPassword = Loadable(lazy(() => import('views/Authentication/Auth/ForgetPassword')));
 const ResetPassword = Loadable(lazy(() => import('views/Authentication/Auth/ResetPassword')));
-const Home = Loadable(lazy(() => import('views/Home')));
-const About = Loadable(lazy(() => import('views/About')));
 const NotFoundView = Loadable(lazy(() => import('views/Error')));
 const Jump = Loadable(lazy(() => import('views/Jump')));
 const Playground = Loadable(lazy(() => import('views/Playground')));
@@ -41,11 +40,11 @@ const OtherRoutes = {
   children: [
     {
       path: '',
-      element: <Home />
+      element: <Navigate to="/price" replace />
     },
     {
       path: '/about',
-      element: <About />
+      element: <Navigate to="/" replace />
     },
     {
       path: '/login',

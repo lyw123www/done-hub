@@ -6,6 +6,8 @@ import jsconfigPaths from 'vite-jsconfig-paths';
 
 // ----------------------------------------------------------------------
 
+const devProxyTarget = process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:5101';
+
 export default defineConfig({
   plugins: [react(), jsconfigPaths()],
   // https://github.com/jpuri/react-draft-wysiwyg/issues/1317
@@ -15,9 +17,9 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
-        // 使用现代 Sass API 解决 Legacy JS API 警告
+        // Use the modern Sass API to avoid legacy JS API warnings.
         api: 'modern-compiler',
-        // 静默弃用警告
+        // Silence known deprecation warnings from older dependencies.
         silenceDeprecations: ['legacy-js-api', 'import']
       }
     }
@@ -35,22 +37,18 @@ export default defineConfig({
     ]
   },
   server: {
-    // this ensures that the browser opens upon server start
     open: true,
-    // this sets a default port to 3000
     host: true,
     port: 3010,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:3000', // 设置代理的目标服务器
+        target: devProxyTarget,
         changeOrigin: true
       }
     }
   },
   preview: {
-    // this ensures that the browser opens upon preview start
     open: true,
-    // this sets a default port to 3000
     port: 3010
   }
 });

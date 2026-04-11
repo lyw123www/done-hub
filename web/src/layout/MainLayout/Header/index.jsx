@@ -3,36 +3,26 @@ import { useState } from 'react';
 import { Icon } from '@iconify/react';
 import { useLocation } from 'react-router-dom';
 
-// material-ui
 import { useTheme } from '@mui/material/styles';
 import { Box, IconButton, Stack } from '@mui/material';
 
-// project imports
 import LogoSection from '../LogoSection';
 import Profile from './Profile';
 import ThemeButton from 'ui-component/ThemeButton';
 import I18nButton from 'ui-component/i18nButton';
 import { NoticeButton } from 'ui-component/notice';
 
-// assets
-// import { Icon } from '@iconify/react';
-
-// ==============================|| MAIN NAVBAR / HEADER ||============================== //
-
 const Header = ({ handleLeftDrawerToggle, toggleProfileDrawer }) => {
   const theme = useTheme();
   const [isDrawerOpen, setIsDrawerOpen] = useState(true);
   const location = useLocation();
-  
-  // 检查当前路径是否为面板/控制台页面
   const isConsoleRoute = location.pathname.startsWith('/panel');
 
   return (
     <>
-      {/* logo & toggler button */}
       <Box
         sx={{
-          width: isDrawerOpen ? 255 : 150,
+          width: isDrawerOpen ? 220 : 88,
           display: 'flex',
           alignItems: 'center',
           [theme.breakpoints.down('md')]: {
@@ -40,8 +30,18 @@ const Header = ({ handleLeftDrawerToggle, toggleProfileDrawer }) => {
           }
         }}
       >
-        <Box component="span" sx={{ display: { xs: 'none', md: 'block' }, flexGrow: 1 }}>
-          <LogoSection />
+        <Box
+          component="span"
+          sx={{
+            display: { xs: 'none', md: 'flex' },
+            alignItems: 'center',
+            flexGrow: 1,
+            minWidth: 0,
+            maxWidth: isDrawerOpen ? 168 : 44,
+            mr: 1.5
+          }}
+        >
+          <LogoSection compact={!isDrawerOpen} />
         </Box>
         <IconButton
           size="medium"
@@ -74,7 +74,6 @@ const Header = ({ handleLeftDrawerToggle, toggleProfileDrawer }) => {
 
       <Box sx={{ flexGrow: 1 }} />
 
-      {/* 右侧功能按钮区 */}
       <Stack direction="row" spacing={1} alignItems="center">
         <NoticeButton />
         <ThemeButton />

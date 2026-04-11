@@ -1,25 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="cx-loading-light" x1="18" y1="14" x2="61" y2="60" gradientUnits="userSpaceOnUse">
+    <linearGradient id="cx-mark-light" x1="18" y1="14" x2="61" y2="60" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#0D6BFF" />
       <stop offset="1" stop-color="#12C6AF" />
     </linearGradient>
-    <radialGradient id="cx-loading-glow-light" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(48 18) rotate(124) scale(54)">
+    <radialGradient id="cx-mark-glow-light" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(48 18) rotate(124) scale(54)">
       <stop offset="0" stop-color="#70D6FF" />
       <stop offset="1" stop-color="#70D6FF" stop-opacity="0" />
     </radialGradient>
   </defs>
-
   <rect x="8" y="8" width="56" height="56" rx="18" fill="#09121F" />
-  <rect x="8" y="8" width="56" height="56" rx="18" fill="url(#cx-loading-glow-light)" opacity="0.24" />
+  <rect x="8" y="8" width="56" height="56" rx="18" fill="url(#cx-mark-glow-light)" opacity="0.24" />
   <rect x="8.75" y="8.75" width="54.5" height="54.5" rx="17.25" stroke="#99E7FF" stroke-opacity="0.18" stroke-width="1.5" />
-  <path
-    d="M44.5 20.5C39.9 17.9 33.9 17.7 28.8 20.4C19.7 25.3 16.2 36.6 21.1 45.7C26 54.8 37.3 58.3 46.4 53.4"
-    stroke="url(#cx-loading-light)"
-    stroke-width="6"
-    stroke-linecap="round"
-  />
+  <path d="M44.5 20.5C39.9 17.9 33.9 17.7 28.8 20.4C19.7 25.3 16.2 36.6 21.1 45.7C26 54.8 37.3 58.3 46.4 53.4" stroke="url(#cx-mark-light)" stroke-width="6" stroke-linecap="round" />
   <path d="M34 24L50 48" stroke="#ECFBFF" stroke-width="6" stroke-linecap="round" />
   <path d="M50 24L34 48" stroke="#8DEFFF" stroke-width="6" stroke-linecap="round" />
   <circle cx="51.5" cy="20.5" r="4.5" fill="#9FF3E1" />

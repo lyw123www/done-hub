@@ -6,7 +6,6 @@ import {
   InputLabel,
   OutlinedInput,
   Button,
-  Alert,
   TextField,
   Dialog,
   DialogTitle,
@@ -27,7 +26,6 @@ const OtherSetting = () => {
   let [inputs, setInputs] = useState({
     Footer: '',
     Notice: '',
-    About: '',
     SystemName: '',
     Logo: '',
     HomePageContent: ''
@@ -105,10 +103,6 @@ const OtherSetting = () => {
 
   const submitLogo = async () => {
     await updateOption('Logo', inputs.Logo);
-  };
-
-  const submitAbout = async () => {
-    await updateOption('About', inputs.About);
   };
 
   const submitOption = async (key) => {
@@ -252,29 +246,6 @@ const OtherSetting = () => {
               <Button variant="contained" onClick={() => submitOption('HomePageContent')}>
                 {t('setting_index.otherSettings.customSettings.saveHomePageContent')}
               </Button>
-            </Grid>
-            <Grid xs={12}>
-              <FormControl fullWidth>
-                <TextField
-                  multiline
-                  maxRows={15}
-                  id="About"
-                  label={t('setting_index.otherSettings.customSettings.aboutLabel')}
-                  value={inputs.About}
-                  name="About"
-                  onChange={handleInputChange}
-                  minRows={10}
-                  placeholder={t('setting_index.otherSettings.customSettings.aboutPlaceholder')}
-                />
-              </FormControl>
-            </Grid>
-            <Grid xs={12}>
-              <Button variant="contained" onClick={submitAbout}>
-                {t('setting_index.otherSettings.customSettings.saveAbout')}
-              </Button>
-            </Grid>
-            <Grid xs={12}>
-              <Alert severity="warning">{t('setting_index.otherSettings.customSettings.copyrightWarning')}</Alert>
             </Grid>
             <Grid xs={12}>
               <FormControl fullWidth>

@@ -7,6 +7,7 @@ import { QRCode } from 'react-qrcode-logo';
 import successSvg from 'assets/images/success.svg';
 import { API } from 'utils/api';
 import { showError } from 'utils/common';
+import { resolveBrandLogo } from 'utils/branding';
 import { useSelector } from 'react-redux';
 
 const PayDialog = ({ open, onClose, amount, uuid }) => {
@@ -20,7 +21,7 @@ const PayDialog = ({ open, onClose, amount, uuid }) => {
   const [success, setSuccess] = useState(false);
   const [intervalId, setIntervalId] = useState(null);
 
-  let useLogo = siteInfo.logo ? siteInfo.logo : defaultLogo;
+  const useLogo = resolveBrandLogo(siteInfo.logo, defaultLogo);
 
   const clearValue = () => {
     setMessage('正在拉起支付中...');
