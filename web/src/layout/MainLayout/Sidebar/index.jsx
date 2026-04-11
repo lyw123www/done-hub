@@ -1,10 +1,9 @@
 import PropTypes from 'prop-types';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 // material-ui
 import { useTheme } from '@mui/material/styles';
 import { Box, Chip, Drawer, Stack, useMediaQuery } from '@mui/material';
-import { useSelector } from 'react-redux';
 
 // third-party
 import PerfectScrollbar from 'react-perfect-scrollbar';
@@ -23,20 +22,51 @@ const Sidebar = ({ drawerOpen, drawerToggle, window: windowProp }) => {
   const theme = useTheme();
   const matchUpMd = useMediaQuery(theme.breakpoints.up('md'));
   const { t } = useTranslation();
-  const customization = useSelector((state) => state.customization);
+  const scrollbarRef = useRef(null);
+  const resizeObserverRef = useRef(null);
 
-  // 监听菜单打开状态变化
+  const updateScrollbar = useCallback(() => {
+    if (!scrollbarRef.current?.ps) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      scrollbarRef.current?.ps?.update();
+    });
+  }, []);
+
+  const setScrollbarContainerRef = useCallback((ref) => {
+    resizeObserverRef.current?.disconnect();
+    resizeObserverRef.current = null;
+    scrollbarRef.current = ref;
+
+    if (!ref || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    const resizeObserver = new ResizeObserver(() => {
+      ref.ps?.update();
+    });
+
+    resizeObserver.observe(ref);
+    resizeObserverRef.current = resizeObserver;
+  }, []);
+
   useEffect(() => {
-    // 菜单状态变化时，触发容器更新
-    const updatePerfectScrollbar = () => {
-      setTimeout(() => {
-        window.dispatchEvent(new Event('resize'));
-      }, 300);
-    };
-    updatePerfectScrollbar();
-  }, [customization.isOpen]);
+    updateScrollbar();
+    const timer = window.setTimeout(updateScrollbar, 180);
 
-  // 处理滚动事件，阻止冒泡
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [drawerOpen, updateScrollbar]);
+
+  useEffect(() => {
+    return () => {
+      resizeObserverRef.current?.disconnect();
+    };
+  }, []);
+
   const handleScroll = (e) => {
     e.stopPropagation();
   };
@@ -54,7 +84,6 @@ const Sidebar = ({ drawerOpen, drawerToggle, window: windowProp }) => {
         >
           <PerfectScrollbar
             component="div"
-            key={`perfect-scrollbar-${customization.isOpen.length}`}
             options={{
               wheelPropagation: false,
               suppressScrollX: true,
@@ -69,18 +98,7 @@ const Sidebar = ({ drawerOpen, drawerToggle, window: windowProp }) => {
               paddingTop: '8px',
               paddingBottom: '16px'
             }}
-            containerRef={(ref) => {
-              if (ref) {
-                // 在组件挂载和更新时添加resize监听
-                const resizeObserver = new ResizeObserver(() => {
-                  // 当内容大小变化时，通知PerfectScrollbar更新
-                  if (ref.ps) ref.ps.update();
-                });
-                resizeObserver.observe(ref);
-                // 保存引用以便在组件卸载时清理
-                ref._resizeObserver = resizeObserver;
-              }
-            }}
+            containerRef={setScrollbarContainerRef}
           >
             <MenuCard />
             <MenuList />
@@ -126,7 +144,6 @@ const Sidebar = ({ drawerOpen, drawerToggle, window: windowProp }) => {
             component="div"
             onWheel={handleScroll}
             onTouchMove={handleScroll}
-            key={`mobile-view-${customization.isOpen.length}`}
             sx={{
               height: '100%',
               overflowY: 'auto',

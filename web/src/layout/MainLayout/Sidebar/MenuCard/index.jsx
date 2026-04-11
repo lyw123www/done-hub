@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 
 // material-ui
 import { styled, useTheme, alpha } from '@mui/material/styles';
-import { Avatar, Card, CardContent, Box, Typography, Chip, LinearProgress, Stack, Tooltip } from '@mui/material';
-import { keyframes } from '@emotion/react';
+import { Avatar, Box, Card, CardContent, Chip, LinearProgress, Stack, Tooltip, Typography } from '@mui/material';
 import User1 from 'assets/images/users/user-round.svg';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -59,7 +58,7 @@ const InfoChip = styled(Chip)(() => ({
   }
 }));
 
-// ==============================|| SIDEBAR MENU Card ||============================== //
+// ==============================|| SIDEBAR MENU CARD ||============================== //
 
 const MenuCard = () => {
   const theme = useTheme();
@@ -70,30 +69,21 @@ const MenuCard = () => {
   const [usedQuota, setUsedQuota] = useState(0);
   const [requestCount, setRequestCount] = useState(0);
 
-  // Define the gradient animation
-  const gradientAnimation = keyframes`
-    0% {
-      background-position: 0 50%;
-    }
-    50% {
-      background-position: 100% 50%;
-    }
-    100% {
-      background-position: 0 50%;
-    }
-  `;
-
   const quotaPerUnit = localStorage.getItem('quota_per_unit') || 500000;
-
   const totalQuota = parseFloat(balance) + parseFloat(usedQuota);
-  const progressValue = (parseFloat(usedQuota) / totalQuota) * 100;
+  const progressValue = totalQuota > 0 ? (parseFloat(usedQuota) / totalQuota) * 100 : 0;
 
   useEffect(() => {
     if (user) {
       setBalance(((user.quota || 0) / quotaPerUnit).toFixed(2));
       setUsedQuota(((user.used_quota || 0) / quotaPerUnit).toFixed(2));
       setRequestCount(user.request_count || 0);
+      return;
     }
+
+    setBalance(0);
+    setUsedQuota(0);
+    setRequestCount(0);
   }, [user, quotaPerUnit]);
 
   const getProgressColor = () => {
@@ -106,9 +96,9 @@ const MenuCard = () => {
     <CardStyle>
       <CardContent sx={{ p: 1.5, pb: '8px !important' }}>
         <Stack direction="row" spacing={1} alignItems="center" mb={1}>
-          <Box 
+          <Box
             component="div"
-            sx={{ 
+            sx={{
               cursor: 'pointer',
               position: 'relative',
               width: '38px',
@@ -117,15 +107,13 @@ const MenuCard = () => {
               justifyContent: 'center',
               alignItems: 'center',
               borderRadius: '50%',
-              background: `linear-gradient(90deg, 
-                ${theme.palette.primary.main}, 
-                ${theme.palette.secondary.main}, 
-                ${theme.palette.primary.light}, 
-                ${theme.palette.primary.main})`,
-              backgroundSize: '300% 300%',
-              animation: `${gradientAnimation} 3s ease infinite`,
+              background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.2)} 0%, ${alpha(
+                theme.palette.secondary.main,
+                0.12
+              )} 100%)`,
+              boxShadow: `0 8px 18px ${alpha(theme.palette.primary.main, 0.12)}`,
               '&:hover': {
-                animation: `${gradientAnimation} 1.5s ease infinite`,
+                boxShadow: `0 10px 22px ${alpha(theme.palette.primary.main, 0.16)}`
               }
             }}
             onClick={() => navigate('/panel/profile')}
@@ -137,7 +125,7 @@ const MenuCard = () => {
                 height: '36px',
                 cursor: 'pointer',
                 border: '1px solid',
-                borderColor: (theme) => (theme.palette.mode === 'dark' ? theme.palette.background.paper : '#ffffff'),
+                borderColor: theme.palette.mode === 'dark' ? theme.palette.background.paper : '#ffffff',
                 bgcolor: '#FFFFFF',
                 variant: 'rounded',
                 transition: 'transform 0.2s ease-in-out, background-color 0.2s ease-in-out',
@@ -165,7 +153,6 @@ const MenuCard = () => {
               <InfoChip
                 label={
                   <Stack direction="row" spacing={0.5} alignItems="center">
-                    {/*<Icon icon="solar:heart-bold" color={theme.palette.error.main} width={12} />*/}
                     <Typography variant="caption" sx={{ fontSize: '0.65rem', fontWeight: 500 }}>
                       {userGroup[user.group].name} | RPM:{userGroup[user.group].api_rate}
                     </Typography>

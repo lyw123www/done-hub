@@ -23,19 +23,20 @@ const NavCollapse = ({ menu, level }) => {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState(null);
 
+  const updateSidebarScrollbar = () => {
+    window.requestAnimationFrame(() => {
+      const scrollContainer = document.querySelector('.ps');
+      scrollContainer?.ps?.update();
+    });
+  };
+
   const handleClick = () => {
     setOpen(!open);
     setSelected(!selected ? menu.id : null);
-    // 触发一个小延迟后的滚动容器重新计算
+
     setTimeout(() => {
-      // 触发窗口的resize事件，让PerfectScrollbar重新计算
-      window.dispatchEvent(new Event('resize'));
-      // 找到当前滚动容器并进行滚动更新
-      const scrollContainer = document.querySelector('.ps--active-y');
-      if (scrollContainer?.ps) {
-        scrollContainer.ps.update();
-      }
-    }, 300); // 等待折叠动画完成
+      updateSidebarScrollbar();
+    }, 300);
   };
 
   const { pathname } = useLocation();
@@ -48,7 +49,6 @@ const NavCollapse = ({ menu, level }) => {
     });
   };
 
-  // menu collapse for sub-levels
   useEffect(() => {
     setOpen(false);
     setSelected(null);
@@ -67,7 +67,6 @@ const NavCollapse = ({ menu, level }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, menu.children]);
 
-  // menu collapse & item
   const menus = menu.children?.map((item) => {
     switch (item.type) {
       case 'collapse':
@@ -152,25 +151,12 @@ const NavCollapse = ({ menu, level }) => {
         timeout="auto"
         unmountOnExit
         onEntered={() => {
-          window.dispatchEvent(new Event('resize'));
-          // 找到当前滚动容器并立即更新
-          const scrollContainer = document.querySelector('.ps--active-y');
-          if (scrollContainer?.ps) {
-            scrollContainer.ps.update();
-          }
+          updateSidebarScrollbar();
         }}
         onExited={() => {
-          window.dispatchEvent(new Event('resize'));
-          // 找到当前滚动容器并立即更新
-          const scrollContainer = document.querySelector('.ps--active-y');
-          if (scrollContainer?.ps) {
-            scrollContainer.ps.update();
-          }
-          // 触发第二次更新以确保所有变化都被捕获
+          updateSidebarScrollbar();
           setTimeout(() => {
-            if (scrollContainer?.ps) {
-              scrollContainer.ps.update();
-            }
+            updateSidebarScrollbar();
           }, 100);
         }}
       >

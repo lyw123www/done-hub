@@ -1,5 +1,4 @@
-// contexts/User/index.jsx
-import React, { useEffect, useCallback, createContext, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, createContext } from 'react';
 import { useSelector } from 'react-redux';
 import useLogin from 'hooks/useLogin';
 
@@ -10,32 +9,47 @@ const UserProvider = ({ children }) => {
   const [isUserLoaded, setIsUserLoaded] = useState(false);
   const account = useSelector((state) => state.account);
   const { loadUser: loadUserAction, loadUserGroup: loadUserGroupAction } = useLogin();
+  const hasBootstrappedRef = useRef(false);
 
   const loadUser = useCallback(async () => {
     setIsUserLoaded(false);
-    await loadUserAction();
+    const user = await loadUserAction();
     setIsUserLoaded(true);
+    return user;
   }, [loadUserAction]);
 
-  const loadUserGroup = useCallback(() => {
-    loadUserGroupAction();
+  const loadUserGroup = useCallback(async () => {
+    return loadUserGroupAction();
   }, [loadUserGroupAction]);
 
-  useEffect(() => {
-    // 只有在没有用户信息时才加载
-    if (!account.user) {
-      // 静默加载用户信息，不显示错误
-      loadUser().catch(() => {
-        // 静默处理错误，避免在登录页面显示错误信息
-      });
-      loadUserGroup();
-    } else {
-      // 如果已经有用户信息，直接设置为已加载
-      setIsUserLoaded(true);
+  const bootstrapUser = useCallback(async () => {
+    if (hasBootstrappedRef.current) {
+      return;
     }
-  }, [loadUser, loadUserGroup, account.user]);
 
-  return <UserContext.Provider value={{ loadUser, isUserLoaded, loadUserGroup }}> {children} </UserContext.Provider>;
+    hasBootstrappedRef.current = true;
+    setIsUserLoaded(false);
+
+    const user = await loadUserAction();
+    if (user) {
+      await loadUserGroupAction();
+    }
+
+    setIsUserLoaded(true);
+  }, [loadUserAction, loadUserGroupAction]);
+
+  useEffect(() => {
+    if (account.user) {
+      setIsUserLoaded(true);
+      return;
+    }
+
+    bootstrapUser().catch(() => {
+      setIsUserLoaded(true);
+    });
+  }, [account.user, bootstrapUser]);
+
+  return <UserContext.Provider value={{ loadUser, isUserLoaded, loadUserGroup }}>{children}</UserContext.Provider>;
 };
 
 export default UserProvider;

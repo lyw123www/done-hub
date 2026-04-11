@@ -10,6 +10,7 @@ const useLogin = () => {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+
   const login = async (username, password) => {
     try {
       const res = await API.post(`/api/user/login`, {
@@ -18,14 +19,12 @@ const useLogin = () => {
       });
       const { success, message } = res.data;
       if (success) {
-        // 等待用户信息加载完成后再跳转
         await loadUser();
         loadUserGroup();
         navigate('/panel');
       }
       return { success, message };
     } catch (err) {
-      // 请求失败，设置错误信息
       return { success: false, message: '' };
     }
   };
@@ -40,7 +39,6 @@ const useLogin = () => {
           showSuccess(t('common.bindOk'));
           navigate('/panel');
         } else {
-          // 等待用户信息加载完成后再跳转
           await loadUser();
           loadUserGroup();
           showSuccess(t('common.loginOk'));
@@ -49,7 +47,6 @@ const useLogin = () => {
       }
       return { success, message };
     } catch (err) {
-      // 请求失败，设置错误信息
       return { success: false, message: '' };
     }
   };
@@ -72,7 +69,6 @@ const useLogin = () => {
       }
       return { success, message };
     } catch (err) {
-      // 请求失败，设置错误信息
       return { success: false, message: '' };
     }
   };
@@ -87,7 +83,6 @@ const useLogin = () => {
           showSuccess(t('common.bindOk'));
           navigate('/panel');
         } else {
-          // 等待用户信息加载完成后再跳转
           await loadUser();
           showSuccess(t('common.loginOk'));
           navigate('/panel');
@@ -95,7 +90,6 @@ const useLogin = () => {
       }
       return { success, message };
     } catch (err) {
-      // 请求失败，设置错误信息
       return { success: false, message: '' };
     }
   };
@@ -106,7 +100,6 @@ const useLogin = () => {
       const res = await API.get(`/api/oauth/wechat?code=${code}&aff=${affCode}`);
       const { success, message } = res.data;
       if (success) {
-        // 等待用户信息加载完成后再跳转
         await loadUser();
         loadUserGroup();
         showSuccess(t('common.loginOk'));
@@ -114,7 +107,6 @@ const useLogin = () => {
       }
       return { success, message };
     } catch (err) {
-      // 请求失败，设置错误信息
       return { success: false, message: '' };
     }
   };
@@ -129,7 +121,6 @@ const useLogin = () => {
           showSuccess(t('common.bindOk'));
           navigate('/panel');
         } else {
-          // 等待用户信息加载完成后再跳转
           await loadUser();
           loadUserGroup();
           showSuccess(t('common.loginOk'));
@@ -138,7 +129,6 @@ const useLogin = () => {
       }
       return { success, message };
     } catch (err) {
-      // 请求失败，设置错误信息
       return { success: false, message: '' };
     }
   };
@@ -160,27 +150,28 @@ const useLogin = () => {
       }
       return null;
     } catch (err) {
-      // 只在非401错误时打印错误信息
-      if (err.response?.status !== 401) {
+      if (![401, 429].includes(err.response?.status)) {
         console.error(err);
       }
       return null;
     }
   }, [dispatch]);
 
-  const loadUserGroup = useCallback(() => {
+  const loadUserGroup = useCallback(async () => {
     try {
-      API.get('/api/user_group_map').then((res) => {
-        const { success, data } = res.data;
-        if (success) {
-          dispatch({ type: SET_USER_GROUP, payload: data });
-        }
-      });
+      const res = await LoginCheckAPI.get('/api/user_group_map');
+      const { success, data } = res.data;
+      if (success) {
+        dispatch({ type: SET_USER_GROUP, payload: data });
+        return data;
+      }
     } catch (error) {
-      console.error(error);
+      if (![401, 429].includes(error.response?.status)) {
+        console.error(error);
+      }
     }
     return [];
-  }, []);
+  }, [dispatch]);
 
   return { login, logout, githubLogin, wechatLogin, larkLogin, oidcLogin, linuxDoLogin, loadUser, loadUserGroup };
 };
