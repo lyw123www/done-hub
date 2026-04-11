@@ -22,7 +22,9 @@ API.interceptors.response.use(
       error.message = error.response.data.message;
     }
 
-    showError(error);
+    if (!error.config?.skipErrorHandler) {
+      showError(error);
+    }
     return Promise.reject(error);
   }
 );

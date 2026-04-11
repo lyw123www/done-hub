@@ -29,7 +29,15 @@ export function getSnackbarOptions(variant) {
 }
 
 export function showError(error) {
+  if (typeof error === 'string' && /^Request failed with status code \d+$/.test(error)) {
+    return;
+  }
+
   if (error.message) {
+    if (/^Request failed with status code \d+$/.test(error.message)) {
+      return;
+    }
+
     if (error.name === 'AxiosError') {
       switch (error.response.status) {
         case 429:
