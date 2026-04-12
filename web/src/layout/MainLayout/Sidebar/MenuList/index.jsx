@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 // material-ui
 import { Typography } from '@mui/material';
 
@@ -13,16 +15,25 @@ const MenuList = () => {
   const userIsAdmin = useIsAdmin();
   const { t } = useTranslation();
   const siteInfo = useSelector((state) => state.siteInfo);
-  // 遍历并修改 children 的 title 字段
-  menuItem.items.forEach((group) => {
-    group.children.forEach((item) => {
-      item.title = t(item.id);
-    });
-  });
+
+  const translateMenuNode = (item) => {
+    const nextItem = {
+      ...item,
+      title: t(item.id)
+    };
+
+    if (item.children?.length) {
+      nextItem.children = item.children.map(translateMenuNode);
+    }
+
+    return nextItem;
+  };
+
+  const menuGroups = useMemo(() => menuItem.items.map(translateMenuNode), [t]);
 
   return (
     <>
-      {menuItem.items.map((item) => {
+      {menuGroups.map((item) => {
         if (item.type !== 'group') {
           return (
             <Typography key={item.id} variant="h6" color="error" align="center">
@@ -32,9 +43,10 @@ const MenuList = () => {
         }
 
         const filteredChildren = item.children.filter(
-          (child) => (!child.isAdmin || userIsAdmin) &&
-                     !(siteInfo.UserInvoiceMonth === false && child.id === 'invoice') &&
-                     !(siteInfo.builtin_chat_enabled === false && child.id === 'playground')
+          (child) =>
+            (!child.isAdmin || userIsAdmin) &&
+            !(siteInfo.UserInvoiceMonth === false && child.id === 'invoice') &&
+            !(siteInfo.builtin_chat_enabled === false && child.id === 'playground')
         );
 
         if (filteredChildren.length === 0) {

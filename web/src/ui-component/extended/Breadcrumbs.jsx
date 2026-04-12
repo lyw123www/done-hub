@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types';
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 // material-ui
 import { useTheme } from '@mui/material/styles';
@@ -29,6 +29,7 @@ const linkSX = {
 
 const Breadcrumbs = ({ card, divider, icon, icons, maxItems, navigation, rightAlign, separator, title, titleBottom, ...others }) => {
   const theme = useTheme();
+  const { pathname } = useLocation();
 
   const iconStyle = {
     marginRight: theme.spacing(0.75),
@@ -41,31 +42,41 @@ const Breadcrumbs = ({ card, divider, icon, icons, maxItems, navigation, rightAl
   const [main, setMain] = useState();
   const [item, setItem] = useState();
 
-  // set active item state
-  const getCollapse = (menu) => {
-    if (menu.children) {
-      menu.children.filter((collapse) => {
-        if (collapse.type && collapse.type === 'collapse') {
-          getCollapse(collapse);
-        } else if (collapse.type && collapse.type === 'item') {
-          if (document.location.pathname === config.basename + collapse.url) {
-            setMain(menu);
-            setItem(collapse);
-          }
-        }
-        return false;
-      });
-    }
-  };
-
   useEffect(() => {
-    navigation?.items?.map((menu) => {
-      if (menu.type && menu.type === 'group') {
-        getCollapse(menu);
+    let nextMain;
+    let nextItem;
+
+    const findMatch = (menu, parentMenu = null) => {
+      if (!menu.children?.length || nextItem) {
+        return;
       }
-      return false;
+
+      menu.children.forEach((collapse) => {
+        if (nextItem) {
+          return;
+        }
+
+        if (collapse.type === 'collapse') {
+          findMatch(collapse, collapse);
+          return;
+        }
+
+        if (collapse.type === 'item' && pathname === config.basename + collapse.url) {
+          nextMain = parentMenu;
+          nextItem = collapse;
+        }
+      });
+    };
+
+    navigation?.items?.forEach((menu) => {
+      if (menu.type === 'group') {
+        findMatch(menu);
+      }
     });
-  });
+
+    setMain(nextMain);
+    setItem(nextItem);
+  }, [navigation, pathname]);
 
   // item separator
   const separatorIcon = separator ? (

@@ -11,10 +11,16 @@ const AUTH_ONLY_PATHS = new Set(['/login', '/register', '/reset', '/user/reset']
 export function NoticeProvider({ children }) {
   const [notice, setNotice] = useState(null);
   const [isOpen, setOpen] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
   const { pathname } = useLocation();
   const isAuthOnlyRoute = AUTH_ONLY_PATHS.has(pathname) || pathname.startsWith('/oauth/');
 
-  const openNotice = () => setOpen(true);
+  const openNotice = async () => {
+    if (!isLoaded && !isAuthOnlyRoute) {
+      await checkNotice();
+    }
+    setOpen(true);
+  };
   const closeNotice = () => setOpen(false);
 
   const checkNotice = useCallback(async () => {
@@ -37,6 +43,7 @@ export function NoticeProvider({ children }) {
         } else if (oldNotice) {
           await processAndSetNotice(oldNotice);
         }
+        setIsLoaded(true);
       } catch (error) {
         console.error('Failed to fetch notice:', error);
       }
@@ -47,11 +54,10 @@ export function NoticeProvider({ children }) {
     if (isAuthOnlyRoute) {
       setNotice(null);
       setOpen(false);
+      setIsLoaded(false);
       return;
     }
-
-    checkNotice();
-  }, [checkNotice, isAuthOnlyRoute]);
+  }, [isAuthOnlyRoute]);
 
   const memoizedValue = useMemo(
     () => ({

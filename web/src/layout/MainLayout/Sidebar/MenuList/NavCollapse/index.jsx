@@ -23,20 +23,9 @@ const NavCollapse = ({ menu, level }) => {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState(null);
 
-  const updateSidebarScrollbar = () => {
-    window.requestAnimationFrame(() => {
-      const scrollContainer = document.querySelector('.ps');
-      scrollContainer?.ps?.update();
-    });
-  };
-
   const handleClick = () => {
     setOpen(!open);
     setSelected(!selected ? menu.id : null);
-
-    setTimeout(() => {
-      updateSidebarScrollbar();
-    }, 300);
   };
 
   const { pathname } = useLocation();
@@ -150,15 +139,6 @@ const NavCollapse = ({ menu, level }) => {
         in={open}
         timeout="auto"
         unmountOnExit
-        onEntered={() => {
-          updateSidebarScrollbar();
-        }}
-        onExited={() => {
-          updateSidebarScrollbar();
-          setTimeout(() => {
-            updateSidebarScrollbar();
-          }, 100);
-        }}
       >
         <List
           component="div"
