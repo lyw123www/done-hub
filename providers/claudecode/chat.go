@@ -33,6 +33,13 @@ func (p *ClaudeCodeProvider) CreateClaudeChat(request *claude.ClaudeRequest) (*c
 		return nil, errWithCode
 	}
 
+	usage := p.GetUsage()
+	isOk := claude.ClaudeUsageToOpenaiUsage(&claudeResponse.Usage, usage)
+	if !isOk {
+		usage.CompletionTokens = claude.ClaudeOutputUsage(claudeResponse)
+		usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+	}
+
 	return claudeResponse, nil
 }
 
@@ -52,7 +59,7 @@ func (p *ClaudeCodeProvider) CreateClaudeChatStream(request *claude.ClaudeReques
 		return nil, errWithCode
 	}
 
-	chatHandler := &claude.ClaudeStreamHandler{
+	chatHandler := &claude.ClaudeRelayStreamHandler{
 		Usage:     p.Usage,
 		ModelName: request.Model,
 		Prefix:    `data: {"type"`,
