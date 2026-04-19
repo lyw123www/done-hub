@@ -16,6 +16,51 @@ import (
 	"github.com/google/uuid"
 )
 
+// CreateClaudeChat 创建原生 Claude 格式聊天
+func (p *ClaudeCodeProvider) CreateClaudeChat(request *claude.ClaudeRequest) (*claude.ClaudeResponse, *types.OpenAIErrorWithStatusCode) {
+	// 原生 Claude 请求也要走 ClaudeCode 的兼容逻辑，否则官方 CLI 会缺少必要的头和元数据。
+	p.applyClaudeCodeCompatibility(request)
+
+	req, errWithCode := p.getChatRequest(request)
+	if errWithCode != nil {
+		return nil, errWithCode
+	}
+	defer req.Body.Close()
+
+	claudeResponse := &claude.ClaudeResponse{}
+	_, errWithCode = p.Requester.SendRequest(req, claudeResponse, false)
+	if errWithCode != nil {
+		return nil, errWithCode
+	}
+
+	return claudeResponse, nil
+}
+
+// CreateClaudeChatStream 创建原生 Claude 格式流式聊天
+func (p *ClaudeCodeProvider) CreateClaudeChatStream(request *claude.ClaudeRequest) (requester.StreamReaderInterface[string], *types.OpenAIErrorWithStatusCode) {
+	// 原生 Claude 请求也要走 ClaudeCode 的兼容逻辑，否则官方 CLI 会缺少必要的头和元数据。
+	p.applyClaudeCodeCompatibility(request)
+
+	req, errWithCode := p.getChatRequest(request)
+	if errWithCode != nil {
+		return nil, errWithCode
+	}
+	defer req.Body.Close()
+
+	resp, errWithCode := p.Requester.SendRequestRaw(req)
+	if errWithCode != nil {
+		return nil, errWithCode
+	}
+
+	chatHandler := &claude.ClaudeStreamHandler{
+		Usage:     p.Usage,
+		ModelName: request.Model,
+		Prefix:    `data: {"type"`,
+	}
+
+	return requester.RequestNoTrimStream(p.Requester, resp, chatHandler.HandlerStream)
+}
+
 // CreateChatCompletion 创建聊天完成
 func (p *ClaudeCodeProvider) CreateChatCompletion(request *types.ChatCompletionRequest) (*types.ChatCompletionResponse, *types.OpenAIErrorWithStatusCode) {
 	request.OneOtherArg = p.GetOtherArg()
