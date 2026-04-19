@@ -39,7 +39,8 @@ import Wechat from 'assets/images/icons/wechat.svg';
 import Lark from 'assets/images/icons/lark.svg';
 import Oidc from 'assets/images/icons/oidc.svg';
 import LinuxDoIcon from 'assets/images/icons/LinuxDoIcon';
-import { onGitHubOAuthClicked, onLarkOAuthClicked, onLinuxDoOAuthClicked, onOIDCAuthClicked } from 'utils/common';
+import { onGitHubOAuthClicked, onLarkOAuthClicked, onLinuxDoOAuthClicked, onOIDCAuthClicked, onWebAuthnClicked } from 'utils/common';
+import Webauthn from 'assets/images/icons/webauthn.svg';
 import { useTranslation } from 'react-i18next';
 
 // ============================|| FIREBASE - LOGIN ||============================ //
@@ -356,6 +357,32 @@ const LoginForm = ({ ...others }) => {
               </AnimateButton>
             </Box>
 
+            <Box sx={{ mt: 2 }}>
+              <AnimateButton>
+                <Button
+                  disableElevation
+                  fullWidth
+                  onClick={() =>
+                    onWebAuthnClicked(
+                      values.username,
+                      (msg) => setErrors({ submit: msg }),
+                      (msg) => setStatus({ success: true, message: msg }),
+                      () => {}
+                    )
+                  }
+                  size="large"
+                  variant="outlined"
+                  sx={{
+                    ...theme.typography.LoginButton
+                  }}
+                >
+                  <Box sx={{ mr: { xs: 1, sm: 2, width: 20 }, display: 'flex', alignItems: 'center' }}>
+                    <img src={Webauthn} alt="WebAuthn" width={25} height={25} style={{ marginRight: matchDownSM ? 8 : 16 }} />
+                  </Box>
+                  WebAuthn
+                </Button>
+              </AnimateButton>
+            </Box>
           </form>
         )}
       </Formik>

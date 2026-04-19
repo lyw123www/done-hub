@@ -1,26 +1,15 @@
 import PropTypes from 'prop-types';
 import { useMemo, useState, useEffect, useContext, useCallback, createContext } from 'react';
-import { useLocation } from 'react-router-dom';
 
 import { API } from 'utils/api';
 
 export const NoticeContext = createContext(undefined);
 
-const AUTH_ONLY_PATHS = new Set(['/login', '/register', '/reset', '/user/reset']);
-
 export function NoticeProvider({ children }) {
   const [notice, setNotice] = useState(null);
   const [isOpen, setOpen] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const { pathname } = useLocation();
-  const isAuthOnlyRoute = AUTH_ONLY_PATHS.has(pathname) || pathname.startsWith('/oauth/');
 
-  const openNotice = async () => {
-    if (!isLoaded && !isAuthOnlyRoute) {
-      await checkNotice();
-    }
-    setOpen(true);
-  };
+  const openNotice = () => setOpen(true);
   const closeNotice = () => setOpen(false);
 
   const checkNotice = useCallback(async () => {
@@ -43,7 +32,6 @@ export function NoticeProvider({ children }) {
         } else if (oldNotice) {
           await processAndSetNotice(oldNotice);
         }
-        setIsLoaded(true);
       } catch (error) {
         console.error('Failed to fetch notice:', error);
       }
@@ -51,13 +39,8 @@ export function NoticeProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (isAuthOnlyRoute) {
-      setNotice(null);
-      setOpen(false);
-      setIsLoaded(false);
-      return;
-    }
-  }, [isAuthOnlyRoute]);
+    checkNotice();
+  }, [checkNotice]);
 
   const memoizedValue = useMemo(
     () => ({
@@ -88,7 +71,7 @@ export function useNotice() {
 
 async function getNotice() {
   try {
-    const res = await API.get('/api/notice', { skipErrorHandler: true });
+    const res = await API.get('/api/notice');
     const { success, data } = res.data;
 
     if (!success) {

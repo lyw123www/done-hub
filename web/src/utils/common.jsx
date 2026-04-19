@@ -29,17 +29,9 @@ export function getSnackbarOptions(variant) {
 }
 
 export function showError(error) {
-  if (typeof error === 'string' && /^Request failed with status code \d+$/.test(error)) {
-    return;
-  }
-
-  if (error?.message) {
-    if (error?.name !== 'AxiosError' && /^Request failed with status code \d+$/.test(error.message)) {
-      return;
-    }
-
+  if (error.message) {
     if (error.name === 'AxiosError') {
-      switch (error.response?.status) {
+      switch (error.response.status) {
         case 429:
           enqueueSnackbar('错误：请求次数过多，请稍后再试！', getSnackbarOptions('ERROR'));
           break;
@@ -52,11 +44,7 @@ export function showError(error) {
         default:
           enqueueSnackbar('错误：' + error.message, getSnackbarOptions('ERROR'));
       }
-      return;
     }
-
-    enqueueSnackbar('Error: ' + error.message, getSnackbarOptions('ERROR'));
-    return;
   } else {
     enqueueSnackbar('错误：' + error, getSnackbarOptions('ERROR'));
   }

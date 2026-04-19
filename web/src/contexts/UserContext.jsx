@@ -1,65 +1,41 @@
-import React, { useCallback, useEffect, useRef, useState, createContext } from 'react';
+// contexts/User/index.jsx
+import React, { useEffect, useCallback, createContext, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { useLocation } from 'react-router-dom';
 import useLogin from 'hooks/useLogin';
 
 export const UserContext = createContext();
-
-const AUTH_ONLY_PATHS = new Set(['/login', '/register', '/reset', '/user/reset']);
 
 // eslint-disable-next-line
 const UserProvider = ({ children }) => {
   const [isUserLoaded, setIsUserLoaded] = useState(false);
   const account = useSelector((state) => state.account);
-  const { pathname } = useLocation();
   const { loadUser: loadUserAction, loadUserGroup: loadUserGroupAction } = useLogin();
-  const hasBootstrappedRef = useRef(false);
-  const isAuthOnlyRoute = AUTH_ONLY_PATHS.has(pathname) || pathname.startsWith('/oauth/');
 
   const loadUser = useCallback(async () => {
     setIsUserLoaded(false);
-    const user = await loadUserAction();
+    await loadUserAction();
     setIsUserLoaded(true);
-    return user;
   }, [loadUserAction]);
 
-  const loadUserGroup = useCallback(async () => {
-    return loadUserGroupAction();
+  const loadUserGroup = useCallback(() => {
+    loadUserGroupAction();
   }, [loadUserGroupAction]);
 
-  const bootstrapUser = useCallback(async () => {
-    if (hasBootstrappedRef.current) {
-      return;
-    }
-
-    hasBootstrappedRef.current = true;
-    setIsUserLoaded(false);
-
-    const user = await loadUserAction();
-    if (user) {
-      await loadUserGroupAction();
-    }
-
-    setIsUserLoaded(true);
-  }, [loadUserAction, loadUserGroupAction]);
-
   useEffect(() => {
-    if (account.user) {
+    // 只有在没有用户信息时才加载
+    if (!account.user) {
+      // 静默加载用户信息，不显示错误
+      loadUser().catch(() => {
+        // 静默处理错误，避免在登录页面显示错误信息
+      });
+      loadUserGroup();
+    } else {
+      // 如果已经有用户信息，直接设置为已加载
       setIsUserLoaded(true);
-      return;
     }
+  }, [loadUser, loadUserGroup, account.user]);
 
-    if (isAuthOnlyRoute) {
-      setIsUserLoaded(true);
-      return;
-    }
-
-    bootstrapUser().catch(() => {
-      setIsUserLoaded(true);
-    });
-  }, [account.user, bootstrapUser, isAuthOnlyRoute]);
-
-  return <UserContext.Provider value={{ loadUser, isUserLoaded, loadUserGroup }}>{children}</UserContext.Provider>;
+  return <UserContext.Provider value={{ loadUser, isUserLoaded, loadUserGroup }}> {children} </UserContext.Provider>;
 };
 
 export default UserProvider;

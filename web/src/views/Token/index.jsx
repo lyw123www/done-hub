@@ -23,8 +23,6 @@ import { PAGE_SIZE_OPTIONS, getPageSize, savePageSize } from 'constants';
 import { useTranslation } from 'react-i18next';
 import { UserContext } from 'contexts/UserContext';
 
-const PUBLIC_API_ADDRESS = 'https://api.marginman.top';
-
 export default function Token() {
   const { t } = useTranslation();
   const [page, setPage] = useState(0);
@@ -246,17 +244,17 @@ export default function Token() {
               }}
               onClick={() => {
                 const apiMap = {
-                  openai: { url: PUBLIC_API_ADDRESS, label: 'OpenAI API地址' },
-                  gemini: { url: `${PUBLIC_API_ADDRESS}/gemini`, label: 'Gemini API地址' },
-                  claude: { url: `${PUBLIC_API_ADDRESS}/claude`, label: 'Claude API地址' }
+                  openai: { url: siteInfo.server_address, label: 'OpenAI API地址' },
+                  gemini: { url: `${siteInfo.server_address}/gemini`, label: 'Gemini API地址' },
+                  claude: { url: `${siteInfo.server_address}/claude`, label: 'Claude API地址' }
                 };
                 copy(apiMap[selectedApiType].url, apiMap[selectedApiType].label);
               }}
             >
               <b>
-                {selectedApiType === 'openai' && PUBLIC_API_ADDRESS}
-                {selectedApiType === 'gemini' && `${PUBLIC_API_ADDRESS}/gemini`}
-                {selectedApiType === 'claude' && `${PUBLIC_API_ADDRESS}/claude`}
+                {selectedApiType === 'openai' && siteInfo.server_address}
+                {selectedApiType === 'gemini' && `${siteInfo.server_address}/gemini`}
+                {selectedApiType === 'claude' && `${siteInfo.server_address}/claude`}
               </b>
               <Icon icon="solar:copy-line-duotone" style={{ marginLeft: '6px', fontSize: '16px' }} />
             </Box>
